@@ -1,0 +1,79 @@
+#include <Wire.h>
+#include <NewPing.h>
+#include <MPU6050_tockn.h>
+
+// Ultrasonic sensor pins
+const int TRIGGER_PIN = 12;
+const int ECHO_PIN = 13;
+
+// I2C address for motor control
+#define MOTOR_I2C_ADDR 0x04
+
+MPU6050 gyroSensor(Wire);
+
+void setup() {
+  Serial.begin(9600);  // Initialize serial communication at 9600 baud
+  Wire.begin();
+  gyroSensor.begin();
+  gyroSensor.calibrateGyro(true);  // Calibrate the gyroscope
+}
+
+void loop() {
+  moveForward();
+  turnLeft();
+  moveBackward();
+  turnRight();
+  moveBackward();
+  delay(10000);  // Wait for 10 seconds before repeating
+}
+
+void turnLeft() {
+  float initialAngle = gyroSensor.getZAngle();  // Get initial Z-angle
+  setMotorSpeeds(120, 120, 100);  // Turn left
+  while (gyroSensor.getZAngle() - initialAngle > -180) {
+    // Wait until desired angle is reached
+  }
+  setMotorSpeeds(0, 0, 73);  // Stop the robot
+}
+
+void turnRight() {
+  float initialAngle = gyroSensor.getZAngle();
+  setMotorSpeeds(120, 120, 100);
+  while (gyroSensor.getZAngle() - initialAngle < 90) {
+    // Wait until desired angle is reached
+  }
+  setMotorSpeeds(0, 0, 73);
+}
+
+void moveBackward() {
+  setMotorSpeeds(-120, -120, 73);  // Move backward
+  while (getUltrasonicDistance() > 10) {
+    // Keep moving until obstacle is close
+  }
+  setMotorSpeeds(0, 0, 73);  // Stop the robot
+}
+
+void moveForward() {
+  setMotorSpeeds(180, 180, 73);  // Move forward
+  delay(1000);  // Move for 1 second
+  setMotorSpeeds(0, 0, 73);  // Stop the robot
+  delay(200);  // Pause briefly
+}
+
+// Function to get distance from ultrasonic sensor
+int getUltrasonicDistance() {
+  NewPing sonar(TRIGGER_PIN, ECHO_PIN, 400);
+  return sonar.ping_cm();
+}
+
+// Function to set motor speeds and steering angle
+void setMotorSpeeds(int leftSpeed, int rightSpeed, int steerAngle) {
+  Wire.beginTransmission(MOTOR_I2C_ADDR);
+  Wire.write((byte)((leftSpeed & 0x0000FF00) >> 8));  // Send left motor speed high byte
+  Wire.write((byte)(leftSpeed & 0x000000FF));          // Send left motor speed low byte
+  Wire.write((byte)((rightSpeed & 0x0000FF00) >> 8)); // Send right motor speed high byte
+  Wire.write((byte)(rightSpeed & 0x000000FF));         // Send right motor speed low byte
+  Wire.write((byte)((steerAngle & 0x0000FF00) >> 8)); // Send steer angle high byte
+  Wire.write((byte)(steerAngle & 0x000000FF));         // Send steer angle low byte
+  Wire.endTransmission();
+}
